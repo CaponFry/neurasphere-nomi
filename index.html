@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NeuraSphere-Nomi</title>
+    <style>body { margin: 0; } canvas { display: block; }</style>
+</head>
+<body>
+    <input id="chatInput" type="text" placeholder="Talk to Testnomiavatar">
+    <button onclick="sendChat()">Send</button>
+    <div id="response"></div>
+    <div id="audio"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const geometry = new THREE.PlaneGeometry(100, 100, 32, 32);
+        const material = new THREE.MeshBasicMaterial({ color: 0x555555, wireframe: true });
+        const terrain = new THREE.Mesh(geometry, material);
+        terrain.rotation.x = -Math.PI / 2;
+        scene.add(terrain);
+
+        const nomiavatarGeo = new THREE.BoxGeometry(1, 1, 1);
+        const nomiavatarMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const nomiavatar = new THREE.Mesh(nomiavatarGeo, nomiavatarMat);
+        nomiavatar.position.y = 0.5;
+        scene.add(nomiavatar);
+
+        camera.position.set(0, 5, 5);
+        camera.lookAt(0, 0, 0);
+
+        let moveDirection = 0.01;
+        function animate() {
+            requestAnimationFrame(animate);
+            nomiavatar.position.x += moveDirection;
+            if (nomiavatar.position.x > 2 || nomiavatar.position.x < -2) moveDirection *= -1;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput').value;
+            console.log("Sending message:", input);
+            try {
+                const response = await fetch('http://localhost:5000/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: input })
+                });
+                console.log("Fetch response status:", response.status);
+                const data = await response.json();
+                console.log("Fetch response data:", data);
+                document.getElementById('response').innerText = data.reply;
+                const audioElement = document.createElement('audio');
+                audioElement.src = data.audio;
+                audioElement.controls = true;
+                audioElement.oncanplaythrough = () => {
+                    console.log("Audio ready to play");
+                    audioElement.play().catch(e => console.error("Play error:", e));
+                };
+                document.getElementById('audio').innerHTML = '';
+                document.getElementById('audio').appendChild(audioElement);
+            } catch (error) {
+                console.error("Fetch error:", error);
+            }
+        }
+
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendChat();
+            }
+        });
+        document.querySelector('button').addEventListener('click', sendChat);
+    </script>
+</body>
+</html>
